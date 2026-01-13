@@ -1,0 +1,1810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <title>AI Dreams - Live Generation Feed</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0a0f;
+            overflow: hidden;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            height: 100vh;
+        }
+
+        /* Header */
+        #header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 10px 20px;
+            background: linear-gradient(to bottom, rgba(10, 10, 15, 0.98), rgba(10, 10, 15, 0.9), transparent);
+            z-index: 10000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #header h1 {
+            color: #fff;
+            font-size: 14px;
+            font-weight: 300;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: opacity 0.2s ease;
+        }
+
+        #header h1:hover {
+            opacity: 0.8;
+        }
+
+        #header h1 span {
+            background: linear-gradient(135deg, #00ff88, #00aaff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 600;
+        }
+
+        #controls {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        /* Mode selector */
+        #mode-selector {
+            display: flex;
+            gap: 4px;
+        }
+
+        #mode-selector button {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: rgba(255, 255, 255, 0.6);
+            padding: 5px 14px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        #mode-selector button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+        }
+
+        #mode-selector button.active {
+            background: linear-gradient(135deg, #00ff88, #00aaff);
+            border-color: transparent;
+            color: #000;
+            font-weight: 600;
+        }
+
+        /* Row selector (strips mode only) */
+        #row-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #row-selector.hidden {
+            display: none;
+        }
+
+        #row-selector label {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        #row-selector .row-options {
+            display: flex;
+            gap: 3px;
+        }
+
+        #row-selector button {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.5);
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        #row-selector button:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+        }
+
+        #row-selector button.active {
+            background: rgba(0, 255, 136, 0.3);
+            border-color: #00ff88;
+            color: #00ff88;
+        }
+
+        #stats {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 10px;
+            display: flex;
+            gap: 12px;
+            pointer-events: none;
+        }
+
+        #stats span {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #00ff88;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .dot.green { background: #00ff88; }
+        .dot.yellow { background: #ffcc00; }
+        .dot.red { background: #ff4444; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* ===== STRIPS MODE ===== */
+        #strips-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding-top: 45px;
+        }
+
+        #strips-container.hidden {
+            display: none;
+        }
+
+        .strip {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            position: relative;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .strip:last-child {
+            border-bottom: none;
+        }
+
+        .strip-inner {
+            display: flex;
+            align-items: center;
+            height: 100%;
+            position: absolute;
+            right: 0;
+        }
+
+        .strip .image-card {
+            height: 100%;
+            flex-shrink: 0;
+            position: relative;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        .strip .image-card img {
+            height: 100%;
+            width: auto;
+            display: block;
+            transition: filter 0.3s ease;
+        }
+
+        .strip .image-card:hover img {
+            filter: brightness(1.15) saturate(1.1);
+        }
+
+        .strip .prompt-overlay {
+            padding: 25px 8px 8px;
+            font-size: 9px;
+        }
+
+        .strip .prompt-text {
+            -webkit-line-clamp: 2;
+        }
+
+        .strip .model-badge {
+            top: 4px;
+            right: 4px;
+            padding: 2px 5px;
+            font-size: 7px;
+        }
+
+        /* ===== RAINBOW MODE ===== */
+        #rainbow-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding-top: 45px;
+        }
+
+        #rainbow-container.hidden {
+            display: none;
+        }
+
+        .rainbow-strip {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .rainbow-strip .color-indicator {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            z-index: 10;
+        }
+
+        .rainbow-strip .strip-inner {
+            display: flex;
+            align-items: center;
+            height: 100%;
+            position: absolute;
+            right: 0;
+        }
+
+        .rainbow-strip .image-card {
+            height: 100%;
+            flex-shrink: 0;
+            position: relative;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        .rainbow-strip .image-card img {
+            height: 100%;
+            width: auto;
+            display: block;
+            transition: filter 0.3s ease;
+        }
+
+        .rainbow-strip .image-card:hover img {
+            filter: brightness(1.15) saturate(1.1);
+        }
+
+        .rainbow-strip .prompt-overlay {
+            padding: 25px 8px 8px;
+            font-size: 9px;
+        }
+
+        .rainbow-strip .model-badge {
+            top: 4px;
+            right: 4px;
+            padding: 2px 5px;
+            font-size: 7px;
+        }
+
+        /* ===== COLLAGE MODE ===== */
+        #collage-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            perspective: 1000px;
+        }
+
+        #collage-container.hidden {
+            display: none;
+        }
+
+        #ambient {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        #ambient.hidden {
+            display: none;
+        }
+
+        .ambient-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.3;
+            animation: drift 20s ease-in-out infinite;
+        }
+
+        .ambient-orb:nth-child(1) {
+            width: 400px;
+            height: 400px;
+            background: #ff006650;
+            top: 20%;
+            left: 10%;
+        }
+
+        .ambient-orb:nth-child(2) {
+            width: 300px;
+            height: 300px;
+            background: #00ff8850;
+            top: 60%;
+            right: 15%;
+            animation-delay: -7s;
+        }
+
+        .ambient-orb:nth-child(3) {
+            width: 350px;
+            height: 350px;
+            background: #0066ff50;
+            bottom: 10%;
+            left: 40%;
+            animation-delay: -14s;
+        }
+
+        @keyframes drift {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(30px, -30px) scale(1.1); }
+            50% { transform: translate(-20px, 20px) scale(0.9); }
+            75% { transform: translate(20px, 10px) scale(1.05); }
+        }
+
+        #collage-container .image-card {
+            position: absolute;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+            cursor: pointer;
+            transition: transform 0.4s ease, box-shadow 0.4s ease;
+            transform-origin: center center;
+        }
+
+        #collage-container .image-card::before {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: 10px;
+            background: linear-gradient(45deg, #ff006620, #00ff8820, #0066ff20, #ff00ff20);
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+
+        #collage-container .image-card:hover {
+            transform: scale(1.15) !important;
+            box-shadow: 0 8px 60px rgba(100, 200, 255, 0.3);
+            z-index: 10000 !important;
+        }
+
+        #collage-container .image-card:hover::before {
+            opacity: 1;
+        }
+
+        #collage-container .image-card img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: filter 0.3s ease;
+        }
+
+        #collage-container .image-card:hover img {
+            filter: brightness(1.1) saturate(1.1);
+        }
+
+        #collage-container .image-card.entering {
+            animation: fadeInScale 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        #collage-container .image-card.floating {
+            animation: float 6s ease-in-out infinite;
+            animation-delay: var(--float-delay);
+        }
+
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(0.5) rotate(var(--rotation)); }
+            to { opacity: 1; transform: scale(1) rotate(var(--rotation)); }
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(var(--rotation)); }
+            50% { transform: translateY(-8px) rotate(var(--rotation)); }
+        }
+
+        /* Shared overlay styles */
+        .prompt-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(transparent, rgba(0, 0, 0, 0.9));
+            color: #fff;
+            padding: 30px 10px 10px;
+            font-size: 10px;
+            line-height: 1.3;
+            opacity: 0;
+            transform: translateY(5px);
+            transition: all 0.3s ease;
+        }
+
+        .image-card:hover .prompt-overlay {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .prompt-text {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .model-badge {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #00ff88;
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-size: 8px;
+            font-weight: 600;
+            text-transform: uppercase;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .image-card:hover .model-badge {
+            opacity: 1;
+        }
+
+        /* Loading */
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            text-align: center;
+            z-index: 10001;
+        }
+
+        #loading .spinner {
+            width: 30px;
+            height: 30px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #00ff88;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Off-screen staging area for pre-rendering images */
+        #staging {
+            position: fixed;
+            right: 100vw;
+            top: 0;
+            pointer-events: none;
+            opacity: 0.01;
+        }
+
+        /* About Modal */
+        #about-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 20000;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        #about-modal.visible {
+            display: flex;
+            opacity: 1;
+        }
+
+        #about-modal .modal-content {
+            background: #0a0a0f;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 40px;
+            max-width: 600px;
+            width: 90%;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        #about-modal .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 24px;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+
+        #about-modal .close-btn:hover {
+            color: #fff;
+        }
+
+        #about-modal h2 {
+            color: #fff;
+            font-size: 24px;
+            font-weight: 300;
+            margin-bottom: 20px;
+            letter-spacing: 2px;
+        }
+
+        #about-modal h2 span {
+            background: linear-gradient(135deg, #00ff88, #00aaff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 600;
+        }
+
+        #about-modal p {
+            color: rgba(255, 255, 255, 0.8);
+            line-height: 1.7;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        #about-modal .powered-by {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        #about-modal .powered-by a {
+            color: #00ff88;
+            text-decoration: none;
+        }
+
+        #about-modal .powered-by a:hover {
+            text-decoration: underline;
+        }
+
+        #about-modal .author {
+            margin-top: 25px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        #about-modal .author h3 {
+            color: #00aaff;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        #about-modal .author p {
+            margin-bottom: 10px;
+            font-size: 13px;
+        }
+
+        #about-modal .author a {
+            color: #00ff88;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        #about-modal .author a:hover {
+            text-decoration: underline;
+        }
+
+        /* Footer */
+        #footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 8px 20px;
+            background: linear-gradient(to top, rgba(10, 10, 15, 0.95), transparent);
+            z-index: 10000;
+            display: flex;
+            justify-content: center;
+            pointer-events: none;
+        }
+
+        #footer p {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 10px;
+            pointer-events: auto;
+        }
+
+        #footer a {
+            color: rgba(255, 255, 255, 0.6);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        #footer a:hover {
+            color: #00ff88;
+        }
+    </style>
+</head>
+<body>
+    <div id="ambient" class="hidden">
+        <div class="ambient-orb"></div>
+        <div class="ambient-orb"></div>
+        <div class="ambient-orb"></div>
+    </div>
+
+    <header id="header">
+        <h1><span>AI Dreams</span> Live Feed</h1>
+        <div id="controls">
+            <div id="mode-selector">
+                <button data-mode="strips" class="active">Strips</button>
+                <button data-mode="rainbow">Rainbow</button>
+                <button data-mode="collage">Collage</button>
+            </div>
+            <div id="row-selector">
+                <label>Rows:</label>
+                <div class="row-options">
+                    <button data-rows="3">3</button>
+                    <button data-rows="4" class="active">4</button>
+                    <button data-rows="5">5</button>
+                    <button data-rows="6">6</button>
+                    <button data-rows="8">8</button>
+                    <button data-rows="12">12</button>
+                </div>
+            </div>
+            <div id="stats">
+                <span id="feed-status"><div class="dot green"></div> Live</span>
+                <span id="image-count">0 images</span>
+            </div>
+        </div>
+    </header>
+
+    <div id="strips-container"></div>
+    <div id="rainbow-container" class="hidden"></div>
+    <div id="collage-container" class="hidden"></div>
+
+    <div id="loading">
+        <div class="spinner"></div>
+        <p>Connecting to stream...</p>
+    </div>
+
+    <!-- Staging area for pre-rendering images before animation -->
+    <div id="staging"></div>
+
+    <!-- About Modal -->
+    <div id="about-modal">
+        <div class="modal-content">
+            <button class="close-btn">&times;</button>
+            <h2><span>AI Dreams</span> Live Feed</h2>
+            <p>
+                A real-time visualisation of AI image generation happening right now on the Pollinations.ai platform.
+                Watch as thousands of creative prompts transform into stunning visuals, streaming live from around the world.
+            </p>
+            <p>
+                Choose from three viewing modes: <strong>Strips</strong> for a flowing ribbon of images,
+                <strong>Rainbow</strong> to see images sorted by their dominant colours, or
+                <strong>Collage</strong> for an organic, layered display.
+            </p>
+            <div class="powered-by">
+                Powered by <a href="https://pollinations.ai" target="_blank" rel="noopener">Pollinations.ai</a> -
+                Your Friendly Open-Source Gen-AI Platform
+            </div>
+            <div class="author">
+                <h3>Available for AI Projects</h3>
+                <p>
+                    Need help integrating AI into your projects? I'm a developer specialising in
+                    AI-powered applications, web development, and creative tech solutions.
+                </p>
+                <p>
+                    <a href="https://techmagic.info" target="_blank" rel="noopener">Techmagic</a> - Dave Alan Caruana
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer id="footer">
+        <p>&copy; 2026 Dave Alan Caruana / <a href="https://techmagic.info" target="_blank" rel="noopener">Techmagic</a></p>
+    </footer>
+
+    <script>
+        // Version
+        const VERSION = '1.1.0';
+        console.log(`AI Dreams v${VERSION} loaded`);
+
+        // About Modal functionality
+        const aboutModal = document.getElementById('about-modal');
+        const headerTitle = document.querySelector('#header h1');
+        const closeBtn = aboutModal.querySelector('.close-btn');
+
+        headerTitle.addEventListener('click', () => {
+            aboutModal.classList.add('visible');
+        });
+
+        closeBtn.addEventListener('click', () => {
+            aboutModal.classList.remove('visible');
+        });
+
+        aboutModal.addEventListener('click', (e) => {
+            if (e.target === aboutModal) {
+                aboutModal.classList.remove('visible');
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && aboutModal.classList.contains('visible')) {
+                aboutModal.classList.remove('visible');
+            }
+        });
+
+        // Elements
+        const stripsContainer = document.getElementById('strips-container');
+        const rainbowContainer = document.getElementById('rainbow-container');
+        const collageContainer = document.getElementById('collage-container');
+        const ambientEl = document.getElementById('ambient');
+        const loadingEl = document.getElementById('loading');
+        const imageCountEl = document.getElementById('image-count');
+        const modeButtons = document.querySelectorAll('#mode-selector button');
+        const rowButtons = document.querySelectorAll('#row-selector button');
+        const rowSelector = document.getElementById('row-selector');
+        const stagingArea = document.getElementById('staging');
+        const feedStatusEl = document.getElementById('feed-status');
+        const statusDot = feedStatusEl.querySelector('.dot');
+
+        function setStatusColor(color) {
+            statusDot.className = 'dot ' + color;
+        }
+
+        // Canvas for color analysis
+        const colorCanvas = document.createElement('canvas');
+        const colorCtx = colorCanvas.getContext('2d', { willReadFrequently: true });
+
+        // State
+        let currentMode = 'strips';
+        let visibleImages = 0;
+        const seenUrls = new Set();
+
+        // Image cache - stores data URLs to avoid repeat network requests
+        const imageCache = new Map();
+
+        function cacheImage(url, img) {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                const dataURL = canvas.toDataURL('image/jpeg', 0.85);
+                imageCache.set(url, dataURL);
+            } catch (e) {
+                // CORS error - can't cache, will refetch
+                console.log('Could not cache image:', e.message);
+            }
+        }
+
+        function loadImage(url) {
+            return new Promise((resolve, reject) => {
+                // Check cache first
+                if (imageCache.has(url)) {
+                    const img = new Image();
+                    img.src = imageCache.get(url);
+                    img.onload = () => resolve(img);
+                    img.onerror = reject;
+                    return;
+                }
+
+                // Load from network
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.src = url;
+                img.onload = () => {
+                    cacheImage(url, img);
+                    resolve(img);
+                };
+                img.onerror = reject;
+            });
+        }
+
+        // History buffer for mode switching
+        const feedHistory = [];
+        const MAX_HISTORY = 500;
+
+        const CONFIG = {
+            feedUrl: 'https://image.pollinations.ai/feed',
+            baseDuration: 400,
+            maxDuration: 800,
+            widthReference: 400,
+            collage: {
+                // Sizes are multipliers of viewport height
+                minSizeRatio: 0.15,  // ~162px on 1080p
+                maxSizeRatio: 0.38,  // ~410px on 1080p
+                maxImages: 80,
+                overlapThreshold: 0.6  // More aggressive cleanup
+            }
+        };
+
+        // ===== RAINBOW MODE =====
+        // Rainbow colors with their hue values (0-360)
+        // 7 colors - full rainbow
+        const RAINBOW_COLORS = [
+            { name: 'red',    hue: 0,   rgb: '#ff0000' },
+            { name: 'orange', hue: 30,  rgb: '#ff8000' },
+            { name: 'yellow', hue: 60,  rgb: '#ffff00' },
+            { name: 'green',  hue: 120, rgb: '#00ff00' },
+            { name: 'blue',   hue: 210, rgb: '#0066ff' },
+            { name: 'indigo', hue: 260, rgb: '#4b0082' },
+            { name: 'violet', hue: 290, rgb: '#9400d3' }
+        ];
+
+        let rainbowStrips = [];
+        let rainbowStates = [];
+
+        // Adaptive hue distribution
+        const hueHistory = [];
+        const MAX_HUE_HISTORY = 3000;
+        const ADJUSTMENT_INTERVAL = 50;
+        let imagesSinceLastAdjustment = 0;
+
+        // Boundaries between colors (sorted): 7 boundaries for 7 colors
+        // red/or, or/yel, yel/grn, grn/blu, blu/ind, ind/vio, vio/red
+        // Optimized from 1250 image sample
+        let hueBoundaries = [22, 30, 38, 72, 170, 206, 330];
+
+        // Convert HSL to hex color
+        function hslToHex(h, s, l) {
+            s /= 100;
+            l /= 100;
+            const a = s * Math.min(l, 1 - l);
+            const f = n => {
+                const k = (n + h / 30) % 12;
+                const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+                return Math.round(255 * color).toString(16).padStart(2, '0');
+            };
+            return `#${f(0)}${f(8)}${f(4)}`;
+        }
+
+        // Get midpoint hue for each strip based on boundaries
+        function getStripMidpointHue(index) {
+            const numColors = 7;
+            const prevBoundary = index === 0 ? hueBoundaries[numColors - 1] : hueBoundaries[index - 1];
+            const nextBoundary = hueBoundaries[index];
+
+            // Handle wraparound for red (index 0)
+            if (index === 0) {
+                // Red spans from hueBoundaries[6] to 360 and 0 to hueBoundaries[0]
+                const range = (360 - prevBoundary) + nextBoundary;
+                const mid = (prevBoundary + range / 2) % 360;
+                return mid;
+            }
+            return (prevBoundary + nextBoundary) / 2;
+        }
+
+        function createRainbowStrips() {
+            rainbowContainer.innerHTML = '';
+            rainbowStrips = [];
+            rainbowStates = [];
+
+            for (let i = 0; i < 7; i++) {
+                const strip = document.createElement('div');
+                strip.className = 'rainbow-strip';
+                strip.dataset.index = i;
+
+                const indicator = document.createElement('div');
+                indicator.className = 'color-indicator';
+                const midHue = getStripMidpointHue(i);
+                indicator.style.background = hslToHex(midHue, 100, 50);
+
+                const inner = document.createElement('div');
+                inner.className = 'strip-inner';
+
+                strip.appendChild(indicator);
+                strip.appendChild(inner);
+                rainbowContainer.appendChild(strip);
+                rainbowStrips.push(inner);
+
+                rainbowStates.push({
+                    animating: false,
+                    queue: []
+                });
+            }
+        }
+
+        // Update color indicators when boundaries change
+        function updateColorIndicators() {
+            const indicators = rainbowContainer.querySelectorAll('.color-indicator');
+            indicators.forEach((indicator, i) => {
+                const midHue = getStripMidpointHue(i);
+                indicator.style.background = hslToHex(midHue, 100, 50);
+            });
+        }
+
+        function getRainbowStripHeight() {
+            return (window.innerHeight - 45) / 7;
+        }
+
+        // Convert RGB to HSL
+        function rgbToHsl(r, g, b) {
+            r /= 255; g /= 255; b /= 255;
+            const max = Math.max(r, g, b), min = Math.min(r, g, b);
+            let h, s, l = (max + min) / 2;
+
+            if (max === min) {
+                h = s = 0;
+            } else {
+                const d = max - min;
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                switch (max) {
+                    case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+                    case g: h = ((b - r) / d + 2) / 6; break;
+                    case b: h = ((r - g) / d + 4) / 6; break;
+                }
+            }
+            return { h: h * 360, s: s * 100, l: l * 100 };
+        }
+
+        // Get average color from image (normalized for brightness)
+        function getAverageColor(img) {
+            try {
+                const size = 50; // Sample at 50x50 for speed
+                colorCanvas.width = size;
+                colorCanvas.height = size;
+                colorCtx.drawImage(img, 0, 0, size, size);
+
+                const imageData = colorCtx.getImageData(0, 0, size, size);
+                const data = imageData.data;
+
+                // Use circular average for hue (convert to vectors)
+                let sinSum = 0, cosSum = 0;
+                let totalS = 0, totalL = 0;
+                let colorfulPixels = 0;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i], g = data[i + 1], b = data[i + 2];
+                    const hsl = rgbToHsl(r, g, b);
+
+                    // Only count pixels with enough saturation (skip grays)
+                    if (hsl.s > 20) {
+                        // Weight by saturation - more saturated = more influence
+                        const weight = hsl.s / 100;
+                        // Convert hue to radians and accumulate as vector components
+                        const hueRad = hsl.h * Math.PI / 180;
+                        sinSum += Math.sin(hueRad) * weight;
+                        cosSum += Math.cos(hueRad) * weight;
+                        totalS += hsl.s * weight;
+                        totalL += hsl.l * weight;
+                        colorfulPixels += weight;
+                    }
+                }
+
+                if (colorfulPixels < 10) {
+                    // Image is mostly gray, assign to middle (green)
+                    return { h: 120, s: 0, l: 50 };
+                }
+
+                // Convert vector back to angle
+                let avgHue = Math.atan2(sinSum, cosSum) * 180 / Math.PI;
+                if (avgHue < 0) avgHue += 360;
+
+                return {
+                    h: avgHue,
+                    s: totalS / colorfulPixels,
+                    l: totalL / colorfulPixels
+                };
+            } catch (e) {
+                // CORS error or other issue - return random hue
+                console.log('Color analysis failed:', e);
+                return { h: Math.random() * 360, s: 50, l: 50 };
+            }
+        }
+
+        // Find rainbow strip using adaptive boundaries
+        function findClosestRainbowStrip(hsl) {
+            const hue = hsl.h;
+            // Boundaries: [red/or, or/yel, yel/grn, grn/blu, blu/ind, ind/vio, vio/red]
+
+            if (hue >= hueBoundaries[6] || hue < hueBoundaries[0]) return 0; // red
+            if (hue < hueBoundaries[1]) return 1; // orange
+            if (hue < hueBoundaries[2]) return 2; // yellow
+            if (hue < hueBoundaries[3]) return 3; // green
+            if (hue < hueBoundaries[4]) return 4; // blue
+            if (hue < hueBoundaries[5]) return 5; // indigo
+            return 6; // violet
+        }
+
+        // Record hue and periodically adjust boundaries
+        function recordHueAndMaybeAdjust(hue) {
+            hueHistory.push(hue);
+            if (hueHistory.length > MAX_HUE_HISTORY) {
+                hueHistory.shift();
+            }
+
+            imagesSinceLastAdjustment++;
+            if (imagesSinceLastAdjustment >= ADJUSTMENT_INTERVAL && hueHistory.length >= 100) {
+                adjustBoundaries();
+                imagesSinceLastAdjustment = 0;
+            }
+        }
+
+        // Adjust boundaries to equalize distribution
+        function adjustBoundaries() {
+            // Cut circle at 330° (between violet and red)
+            const cutPoint = 330;
+
+            // Unwrap hues so cutPoint becomes 0
+            const unwrapped = hueHistory.map(h => (h - cutPoint + 360) % 360);
+            unwrapped.sort((a, b) => a - b);
+
+            const n = unwrapped.length;
+            const newBoundaries = [];
+
+            // Find 6 boundaries that divide into 7 equal parts
+            for (let i = 1; i <= 6; i++) {
+                const index = Math.floor((i / 7) * n);
+                // Wrap back
+                let boundary = (unwrapped[index] + cutPoint) % 360;
+                newBoundaries.push(Math.round(boundary));
+            }
+
+            // Add the cut point as 7th boundary
+            newBoundaries.push(cutPoint);
+
+            // Sort boundaries
+            newBoundaries.sort((a, b) => a - b);
+
+            hueBoundaries = newBoundaries;
+
+            // Update the color indicators to match new boundaries
+            updateColorIndicators();
+
+            // Log to console for user to copy
+            console.log(`hueBoundaries = [${hueBoundaries.join(', ')}]; // n=${n}, equal=${Math.round(n/7)}/strip`);
+        }
+
+        function processRainbowQueue(stripIndex) {
+            const state = rainbowStates[stripIndex];
+            if (state.queue.length === 0) {
+                state.animating = false;
+                return;
+            }
+
+            const strip = rainbowStrips[stripIndex];
+            let totalNewWidth = 0;
+            const cards = [];
+
+            while (state.queue.length > 0) {
+                const { card, imgWidth } = state.queue.shift();
+                cards.push(card);
+                totalNewWidth += imgWidth;
+            }
+
+            cards.forEach(card => {
+                strip.appendChild(card);
+                visibleImages++;
+            });
+
+            strip.style.transition = 'none';
+            strip.style.transform = `translateX(${totalNewWidth - 1}px)`;
+            strip.offsetHeight;
+
+            const duration = getAnimationDuration(totalNewWidth);
+            const easing = getEasing(totalNewWidth);
+
+            setTimeout(() => {
+                strip.style.transition = `transform ${duration}ms ${easing}`;
+                strip.style.transform = 'translateX(0)';
+
+                setTimeout(() => {
+                    // Cleanup off-screen cards
+                    strip.querySelectorAll('.image-card').forEach(card => {
+                        if (card.getBoundingClientRect().right < 0) {
+                            card.remove();
+                            visibleImages--;
+                        }
+                    });
+                    processRainbowQueue(stripIndex);
+                }, duration + 50);
+            }, 200);
+        }
+
+        function addImageToRainbow(imageData, preloadedImg) {
+            const avgColor = getAverageColor(preloadedImg);
+            const stripIndex = findClosestRainbowStrip(avgColor);
+
+            // Record hue for adaptive adjustment (after assignment, so this image keeps its strip)
+            recordHueAndMaybeAdjust(avgColor.h);
+            const state = rainbowStates[stripIndex];
+            const strip = rainbowStrips[stripIndex];
+            const stripHeight = getRainbowStripHeight();
+
+            const aspectRatio = (imageData.width || 1) / (imageData.height || 1);
+            const imgWidth = stripHeight * aspectRatio;
+
+            const card = document.createElement('div');
+            card.className = 'image-card';
+            card.style.width = `${imgWidth}px`;
+
+            const img = preloadedImg;
+            img.alt = imageData.prompt || 'AI Generated';
+
+            const modelBadge = document.createElement('div');
+            modelBadge.className = 'model-badge';
+            modelBadge.textContent = imageData.model || 'flux';
+
+            const overlay = document.createElement('div');
+            overlay.className = 'prompt-overlay';
+
+            const promptText = document.createElement('div');
+            promptText.className = 'prompt-text';
+            promptText.textContent = imageData.prompt || 'No prompt';
+
+            overlay.appendChild(promptText);
+            card.appendChild(img);
+            card.appendChild(modelBadge);
+            card.appendChild(overlay);
+
+            // Stage the card first
+            stagingArea.appendChild(card);
+            card.offsetHeight;
+
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    if (img.naturalWidth > 0) {
+                        stagingArea.removeChild(card);
+                        state.queue.push({ card, imgWidth });
+                        if (!state.animating) {
+                            state.animating = true;
+                            setTimeout(() => processRainbowQueue(stripIndex), 50);
+                        }
+                    }
+                });
+            });
+        }
+
+        // ===== STRIPS MODE =====
+        let numStrips = 4;
+        let currentStrip = 0;
+        let strips = [];
+        let stripStates = [];
+
+        function createStrips(count) {
+            stripsContainer.innerHTML = '';
+            strips = [];
+            stripStates = [];
+            currentStrip = 0;
+
+            for (let i = 0; i < count; i++) {
+                const strip = document.createElement('div');
+                strip.className = 'strip';
+
+                const inner = document.createElement('div');
+                inner.className = 'strip-inner';
+
+                strip.appendChild(inner);
+                stripsContainer.appendChild(strip);
+                strips.push(inner);
+
+                stripStates.push({
+                    animating: false,
+                    queue: []
+                });
+            }
+            numStrips = count;
+        }
+
+        function getStripHeight() {
+            return (window.innerHeight - 45) / numStrips;
+        }
+
+        function getAnimationDuration(imgWidth) {
+            const scaleFactor = Math.sqrt(imgWidth / CONFIG.widthReference);
+            const duration = CONFIG.baseDuration + (scaleFactor - 1) * 200;
+            return Math.min(Math.max(duration, CONFIG.baseDuration), CONFIG.maxDuration);
+        }
+
+        function getEasing(imgWidth) {
+            return imgWidth > 300
+                ? 'cubic-bezier(0.16, 1, 0.3, 1)'
+                : 'cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+        }
+
+        function processStripQueue(stripIndex) {
+            // Guard against stale strip index after row change
+            if (!stripStates[stripIndex] || !strips[stripIndex]) return;
+
+            const state = stripStates[stripIndex];
+            if (state.queue.length === 0) {
+                state.animating = false;
+                return;
+            }
+
+            const strip = strips[stripIndex];
+            let totalNewWidth = 0;
+            const cards = [];
+
+            while (state.queue.length > 0) {
+                const { card, imgWidth } = state.queue.shift();
+                cards.push(card);
+                totalNewWidth += imgWidth;
+            }
+
+            // Add cards to strip
+            cards.forEach(card => {
+                strip.appendChild(card);
+                visibleImages++;
+            });
+
+            // Position strip with 1px visible on screen (forces browser to paint)
+            strip.style.transition = 'none';
+            strip.style.transform = `translateX(${totalNewWidth - 1}px)`;
+
+            // Force layout
+            strip.offsetHeight;
+
+            const duration = getAnimationDuration(totalNewWidth);
+            const easing = getEasing(totalNewWidth);
+
+            // Wait 200ms for browser to actually paint the 1px visible portion
+            setTimeout(() => {
+                strip.style.transition = `transform ${duration}ms ${easing}`;
+                strip.style.transform = 'translateX(0)';
+
+                setTimeout(() => {
+                    cleanupStrip(stripIndex);
+                    processStripQueue(stripIndex);
+                }, duration + 50);
+            }, 200);
+        }
+
+        function addImageToStrip(imageData, stripIndex, preloadedImg) {
+            // Guard against stale strip index after row change
+            if (!stripStates[stripIndex] || !strips[stripIndex]) return;
+
+            const state = stripStates[stripIndex];
+            const strip = strips[stripIndex];
+            const stripHeight = getStripHeight();
+
+            const aspectRatio = (imageData.width || 1) / (imageData.height || 1);
+            const imgWidth = stripHeight * aspectRatio;
+
+            // Create card
+            const card = document.createElement('div');
+            card.className = 'image-card';
+            card.style.width = `${imgWidth}px`;
+
+            // Use the ALREADY LOADED preloaded image - don't create a new one
+            const img = preloadedImg;
+            img.alt = imageData.prompt || 'AI Generated';
+
+            const modelBadge = document.createElement('div');
+            modelBadge.className = 'model-badge';
+            modelBadge.textContent = imageData.model || 'flux';
+
+            const overlay = document.createElement('div');
+            overlay.className = 'prompt-overlay';
+
+            const promptText = document.createElement('div');
+            promptText.className = 'prompt-text';
+            promptText.textContent = imageData.prompt || 'No prompt';
+
+            overlay.appendChild(promptText);
+            card.appendChild(img);
+            card.appendChild(modelBadge);
+            card.appendChild(overlay);
+
+            // Add card to staging area FIRST to force browser to render it
+            stagingArea.appendChild(card);
+
+            // Force a reflow by reading layout property
+            card.offsetHeight;
+
+            // Wait for browser to actually paint the image using double rAF
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    // Verify image is actually painted (has rendered dimensions)
+                    if (img.naturalWidth > 0 && img.offsetWidth > 0) {
+                        // Remove from staging and add to animation queue
+                        stagingArea.removeChild(card);
+
+                        state.queue.push({ card, imgWidth });
+                        if (!state.animating) {
+                            state.animating = true;
+                            setTimeout(() => processStripQueue(stripIndex), 50);
+                        }
+                    } else {
+                        // If somehow still not ready, keep checking
+                        const checkReady = () => {
+                            if (img.naturalWidth > 0 && img.offsetWidth > 0) {
+                                stagingArea.removeChild(card);
+                                state.queue.push({ card, imgWidth });
+                                if (!state.animating) {
+                                    state.animating = true;
+                                    setTimeout(() => processStripQueue(stripIndex), 50);
+                                }
+                            } else {
+                                requestAnimationFrame(checkReady);
+                            }
+                        };
+                        requestAnimationFrame(checkReady);
+                    }
+                });
+            });
+        }
+
+        function cleanupStrip(stripIndex) {
+            const strip = strips[stripIndex];
+            if (!strip) return;
+            strip.querySelectorAll('.image-card').forEach(card => {
+                if (card.getBoundingClientRect().right < 0) {
+                    card.remove();
+                    visibleImages--;
+                }
+            });
+        }
+
+        // ===== COLLAGE MODE =====
+        const collageImages = new Map();
+        const collagePositions = [];
+        let collageCounter = 0;
+
+        function getOverlapPercentage(rect1, rect2) {
+            const xOverlap = Math.max(0, Math.min(rect1.right, rect2.right) - Math.max(rect1.left, rect2.left));
+            const yOverlap = Math.max(0, Math.min(rect1.bottom, rect2.bottom) - Math.max(rect1.top, rect2.top));
+            const overlapArea = xOverlap * yOverlap;
+            const rect1Area = (rect1.right - rect1.left) * (rect1.bottom - rect1.top);
+            return overlapArea / rect1Area;
+        }
+
+        function findCollagePosition(width, height) {
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+            const padding = 20;
+
+            let bestPos = null;
+            let minOverlap = Infinity;
+
+            for (let attempt = 0; attempt < 20; attempt++) {
+                const x = padding + Math.random() * (vw - width - padding * 2);
+                const y = 60 + Math.random() * (vh - height - 80);
+
+                const newRect = { left: x, top: y, right: x + width, bottom: y + height };
+                let maxOverlapForPos = 0;
+
+                collagePositions.forEach(pos => {
+                    const overlap = getOverlapPercentage(pos.rect, newRect);
+                    if (overlap > maxOverlapForPos) maxOverlapForPos = overlap;
+                });
+
+                if (maxOverlapForPos < minOverlap) {
+                    minOverlap = maxOverlapForPos;
+                    bestPos = { x, y };
+                }
+
+                if (minOverlap < 0.3) break;
+            }
+
+            return bestPos || {
+                x: padding + Math.random() * (vw - width - padding * 2),
+                y: 60 + Math.random() * (vh - height - 80)
+            };
+        }
+
+        function cleanupCollage() {
+            const toRemove = [];
+            const threshold = CONFIG.collage.overlapThreshold;
+
+            collagePositions.forEach((pos, index) => {
+                // Calculate cumulative coverage by all higher-z-index images
+                let totalCoverage = 0;
+                for (let i = index + 1; i < collagePositions.length; i++) {
+                    const overlap = getOverlapPercentage(pos.rect, collagePositions[i].rect);
+                    totalCoverage += overlap;
+                    // If mostly covered by a single image or cumulative coverage is high
+                    if (overlap > 0.85 || totalCoverage > threshold) {
+                        toRemove.push(pos.id);
+                        break;
+                    }
+                }
+            });
+
+            toRemove.forEach(id => {
+                const card = collageImages.get(id);
+                if (card) {
+                    // Update counter and tracking immediately
+                    visibleImages--;
+                    collageImages.delete(id);
+                    const idx = collagePositions.findIndex(p => p.id === id);
+                    if (idx > -1) collagePositions.splice(idx, 1);
+
+                    // Animate removal
+                    card.style.transition = 'all 0.5s ease';
+                    card.style.opacity = '0';
+                    card.style.transform = 'scale(0.8)';
+                    setTimeout(() => card.remove(), 500);
+                }
+            });
+        }
+
+        function addImageToCollage(imageData, preloadedImg) {
+            const id = ++collageCounter;
+            const cfg = CONFIG.collage;
+
+            // Viewport-based sizing
+            const vh = window.innerHeight;
+            const minSize = vh * cfg.minSizeRatio;
+            const maxSize = vh * cfg.maxSizeRatio;
+
+            const aspectRatio = (imageData.width || 1) / (imageData.height || 1);
+            let cardWidth = minSize + Math.random() * (maxSize - minSize);
+            let cardHeight = cardWidth / aspectRatio;
+
+            if (cardHeight > maxSize * 1.2) {
+                cardHeight = maxSize * 1.2;
+                cardWidth = cardHeight * aspectRatio;
+            }
+
+            const pos = findCollagePosition(cardWidth, cardHeight);
+            const rotation = (Math.random() - 0.5) * 8;
+
+            const card = document.createElement('div');
+            card.className = 'image-card entering';
+            card.style.cssText = `
+                left: ${pos.x}px;
+                top: ${pos.y}px;
+                width: ${cardWidth}px;
+                height: ${cardHeight}px;
+                z-index: ${100 + collageCounter};
+                --rotation: ${rotation}deg;
+                --float-delay: ${Math.random() * 3}s;
+            `;
+
+            // Reuse the preloaded image element
+            const img = preloadedImg;
+            img.alt = imageData.prompt || 'AI Generated';
+            img.onerror = () => { card.remove(); collageImages.delete(id); };
+
+            const modelBadge = document.createElement('div');
+            modelBadge.className = 'model-badge';
+            modelBadge.textContent = imageData.model || 'flux';
+
+            const overlay = document.createElement('div');
+            overlay.className = 'prompt-overlay';
+
+            const promptText = document.createElement('div');
+            promptText.className = 'prompt-text';
+            promptText.textContent = imageData.prompt || 'No prompt';
+
+            overlay.appendChild(promptText);
+            card.appendChild(img);
+            card.appendChild(modelBadge);
+            card.appendChild(overlay);
+
+            collageContainer.appendChild(card);
+            collageImages.set(id, card);
+            visibleImages++;
+
+            collagePositions.push({
+                id,
+                rect: { left: pos.x, top: pos.y, right: pos.x + cardWidth, bottom: pos.y + cardHeight }
+            });
+
+            setTimeout(() => {
+                card.classList.remove('entering');
+                card.classList.add('floating');
+            }, 600);
+
+            if (collageImages.size > cfg.maxImages) {
+                cleanupCollage();
+                if (collageImages.size > cfg.maxImages) {
+                    const oldestId = collageImages.keys().next().value;
+                    const oldCard = collageImages.get(oldestId);
+                    if (oldCard) {
+                        oldCard.remove();
+                        visibleImages--;
+                    }
+                    collageImages.delete(oldestId);
+                    const idx = collagePositions.findIndex(p => p.id === oldestId);
+                    if (idx > -1) collagePositions.splice(idx, 1);
+                }
+            }
+        }
+
+        // ===== SHARED =====
+        function updateImageCount() {
+            // Use actual data structures as source of truth
+            let visible;
+            if (currentMode === 'collage') {
+                visible = collageImages.size;
+            } else {
+                visible = visibleImages;
+            }
+            imageCountEl.textContent = `${visible} visible / ${feedHistory.length} total`;
+        }
+
+        // Display state - always reads from history
+        let displayIndex = 0;  // Current position in feedHistory
+        let displayRunning = false;
+
+        // Add item to history (from live feed) - only if unique
+        function addToHistory(item) {
+            if (!item.imageURL || item.status !== 'end_generating' || item.nsfw) return false;
+            if (feedHistory.some(h => h.imageURL === item.imageURL)) return false;
+
+            feedHistory.push(item);
+            if (feedHistory.length > MAX_HISTORY) {
+                feedHistory.shift();
+                // Adjust displayIndex since we removed from front
+                if (displayIndex > 0) displayIndex--;
+            }
+            return true;
+        }
+
+        // Display a single item from history
+        function displayItem(item) {
+            if (currentMode === 'rainbow') {
+                loadImage(item.imageURL).then(img => {
+                    addImageToRainbow(item, img);
+                    updateImageCount();
+                }).catch(() => {});
+            } else if (currentMode === 'strips') {
+                const stripIndex = currentStrip;
+                currentStrip = (currentStrip + 1) % numStrips;
+
+                loadImage(item.imageURL).then(img => {
+                    addImageToStrip(item, stripIndex, img);
+                    updateImageCount();
+                }).catch(() => {});
+            } else {
+                loadImage(item.imageURL).then(img => {
+                    addImageToCollage(item, img);
+                    updateImageCount();
+                }).catch(() => {});
+            }
+        }
+
+        // Process display queue - catches up to end of history
+        function processDisplayQueue() {
+            if (displayRunning) return;
+            displayRunning = true;
+
+            const processNext = () => {
+                if (displayIndex < feedHistory.length) {
+                    const item = feedHistory[displayIndex];
+                    displayIndex++;
+
+                    const remaining = feedHistory.length - displayIndex;
+
+                    // Yellow while replaying, green when caught up
+                    setStatusColor(remaining > 0 ? 'yellow' : 'green');
+
+                    displayItem(item);
+
+                    // Continue processing - use setTimeout to not block UI
+                    if (displayIndex < feedHistory.length) {
+                        setTimeout(processNext, 0);
+                    } else {
+                        displayRunning = false;
+                        updateImageCount();
+                    }
+                } else {
+                    displayRunning = false;
+                    setStatusColor('green');
+                }
+            };
+
+            processNext();
+        }
+
+        // Start display from position J-N
+        function startDisplayFromHistory() {
+            const count = getHistoryCount();
+            displayIndex = Math.max(0, feedHistory.length - count);
+            if (feedHistory.length > 0) {
+                setStatusColor('yellow');  // Yellow while replaying
+            }
+            processDisplayQueue();
+        }
+
+        let eventSource = null;
+        let reconnectDelay = 1000;
+        let connectionId = 0;
+
+        function connectToFeed() {
+            connectionId++;
+            const myConnectionId = connectionId;
+
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            console.log('Connecting to Pollinations feed...');
+            setStatusColor('red');  // Red while connecting
+            eventSource = new EventSource(CONFIG.feedUrl);
+
+            eventSource.onopen = () => {
+                console.log('Connected to feed');
+                loadingEl.style.display = 'none';
+                reconnectDelay = 1000;
+                setStatusColor('green');  // Green when connected
+            };
+
+            eventSource.onmessage = (event) => {
+                try {
+                    const item = JSON.parse(event.data);
+                    // Add to history (checks for duplicates)
+                    if (addToHistory(item)) {
+                        // New item added - trigger display queue to pick it up
+                        processDisplayQueue();
+                    }
+                } catch (err) {}
+            };
+
+            eventSource.onerror = () => {
+                eventSource.close();
+                setStatusColor('red');  // Red when disconnected
+                if (myConnectionId !== connectionId) return;
+                console.log(`Connection error, retrying in ${reconnectDelay/1000}s...`);
+                setTimeout(connectToFeed, reconnectDelay);
+                reconnectDelay = Math.min(reconnectDelay * 1.5, 30000);
+            };
+        }
+
+        // Calculate how many history items to show for each mode
+        function getHistoryCount() {
+            if (currentMode === 'collage') {
+                return 50;
+            } else if (currentMode === 'rainbow') {
+                const stripHeight = getRainbowStripHeight();
+                const imagesPerStrip = Math.ceil(window.innerWidth / stripHeight);
+                return Math.ceil(imagesPerStrip * 7 * 1.3);
+            } else {
+                const stripHeight = getStripHeight();
+                const imagesPerStrip = Math.ceil(window.innerWidth / stripHeight);
+                return Math.ceil(imagesPerStrip * numStrips * 1.3);
+            }
+        }
+
+        // Clear all images from current mode's display
+        function clearCurrentDisplay() {
+            visibleImages = 0;
+            displayRunning = false;
+            if (currentMode === 'strips') {
+                strips.forEach(strip => strip.innerHTML = '');
+                stripStates.forEach(state => { state.queue = []; state.animating = false; });
+                currentStrip = 0;
+            } else if (currentMode === 'rainbow') {
+                rainbowStrips.forEach(strip => strip.innerHTML = '');
+                rainbowStates.forEach(state => { state.queue = []; state.animating = false; });
+            } else {
+                collageContainer.querySelectorAll('.image-card').forEach(card => card.remove());
+                collageImages.clear();
+                collagePositions.length = 0;
+            }
+        }
+
+        // Mode switching
+        function setMode(mode, skipHistory = false) {
+            currentMode = mode;
+
+            modeButtons.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === mode);
+            });
+
+            // Hide all containers first
+            stripsContainer.classList.add('hidden');
+            rainbowContainer.classList.add('hidden');
+            collageContainer.classList.add('hidden');
+            ambientEl.classList.add('hidden');
+            rowSelector.classList.add('hidden');
+
+            if (mode === 'strips') {
+                stripsContainer.classList.remove('hidden');
+                rowSelector.classList.remove('hidden');
+            } else if (mode === 'rainbow') {
+                rainbowContainer.classList.remove('hidden');
+            } else {
+                collageContainer.classList.remove('hidden');
+                ambientEl.classList.remove('hidden');
+            }
+
+            // Clear and start display from history
+            if (!skipHistory) {
+                clearCurrentDisplay();
+                startDisplayFromHistory();
+            }
+
+            updateImageCount();
+        }
+
+        // Event listeners
+        modeButtons.forEach(btn => {
+            btn.addEventListener('click', () => setMode(btn.dataset.mode));
+        });
+
+        rowButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                rowButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                createStrips(parseInt(btn.dataset.rows));
+                // Reset visible counter and replay from history
+                visibleImages = 0;
+                displayRunning = false;
+                console.log('Row change - history has', feedHistory.length, 'items, replaying', getHistoryCount());
+                startDisplayFromHistory();
+                updateImageCount();
+            });
+        });
+
+        collageContainer.addEventListener('click', (e) => {
+            const card = e.target.closest('.image-card');
+            if (card) {
+                collageCounter++;
+                card.style.zIndex = 100 + collageCounter;
+            }
+        });
+
+        // Handle tab visibility - pause when hidden, resume when shown
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                // Tab hidden - disconnect from feed
+                console.log('Tab hidden, disconnecting...');
+                if (eventSource) {
+                    eventSource.close();
+                    eventSource = null;
+                }
+            } else {
+                // Tab visible again - just reconnect and continue
+                console.log('Tab visible, reconnecting...');
+                connectToFeed();
+            }
+        });
+
+        // Initialize
+        createStrips(4);
+        createRainbowStrips();
+        setMode('strips', true);  // Skip history replay on init
+        connectToFeed();
+    </script>
+</body>
+</html>
